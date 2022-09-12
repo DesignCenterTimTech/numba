@@ -110,6 +110,36 @@ numba_ldexpf(float x, int exp)
     return x;
 }
 
+NUMBA_EXPORT_FUNC(Py_complex)
+_Py_c_pow(Py_complex a, Py_complex b)
+{
+    Py_complex r;
+    double vabs,len,at,phase;
+    if (b.real == 0. && b.imag == 0.) {
+        r.real = 1.;
+        r.imag = 0.;
+    }
+    else if (a.real == 0. && a.imag == 0.) {
+        if (b.imag != 0. || b.real < 0.)
+            errno = EDOM;
+        r.real = 0.;
+        r.imag = 0.;
+    }
+    else {
+        vabs = hypot(a.real,a.imag);
+        len = pow(vabs,b.real);
+        at = atan2(a.imag, a.real);
+        phase = at*b.real;
+        if (b.imag != 0.0) {
+            len /= exp(at*b.imag);
+            phase += b.imag*log(vabs);
+        }
+        r.real = len*cos(phase);
+        r.imag = len*sin(phase);
+    }
+    return r;
+}
+
 /* provide complex power */
 NUMBA_EXPORT_FUNC(void)
 numba_cpow(Py_complex *a, Py_complex *b, Py_complex *out) {
@@ -827,7 +857,8 @@ static void traceback_add(const char *funcname, const char *filename, int lineno
     return;
 
 error:
-    _PyErr_ChainExceptions(exc, val, tb);
+    // _PyErr_ChainExceptions(exc, val, tb);
+    return;
 }
 
 
@@ -865,27 +896,27 @@ void traceback_add_loc(PyObject *loc) {
 static
 int reraise_exc_is_none(void) {
     /* Reraise */
-    PyThreadState *tstate = PyThreadState_GET();
-    PyObject *tb, *type, *value;
-#if (PY_MAJOR_VERSION >= 3) && (PY_MINOR_VERSION >= 7)
-    _PyErr_StackItem *tstate_exc = tstate->exc_info;
-#else
-    PyThreadState *tstate_exc = tstate;
-#endif
-    type = tstate_exc->exc_type;
-    value = tstate_exc->exc_value;
-    tb = tstate_exc->exc_traceback;
-    if (type == Py_None) {
-        PyErr_SetString(PyExc_RuntimeError,
-                        "No active exception to reraise");
-        return 0;
-    }
-    /* incref needed because PyErr_Restore DOES NOT */
-    Py_XINCREF(type);
-    Py_XINCREF(value);
-    Py_XINCREF(tb);
-    PyErr_Restore(type, value, tb);
-    return 1;
+//     PyThreadState *tstate = PyThreadState_GET();
+//     PyObject *tb, *type, *value;
+// #if (PY_MAJOR_VERSION >= 3) && (PY_MINOR_VERSION >= 7)
+//     _PyErr_StackItem *tstate_exc = tstate->exc_info;
+// #else
+//     PyThreadState *tstate_exc = tstate;
+// #endif
+//     type = tstate_exc->exc_type;
+//     value = tstate_exc->exc_value;
+//     tb = tstate_exc->exc_traceback;
+//     if (type == Py_None) {
+//         PyErr_SetString(PyExc_RuntimeError,
+//                         "No active exception to reraise");
+//         return 0;
+//     }
+//     /* incref needed because PyErr_Restore DOES NOT */
+//     Py_XINCREF(type);
+//     Py_XINCREF(value);
+//     Py_XINCREF(tb);
+//     PyErr_Restore(type, value, tb);
+    return 0;
 }
 
 /*
@@ -1084,21 +1115,21 @@ numba_extract_unicode(PyObject *obj, Py_ssize_t *length, int *kind,
         *ascii = (unsigned int)(PyUnicode_MAX_CHAR_VALUE(obj) == (0x7f));
         /* this is here as a crude check for safe casting of all unicode string
          * structs to a PyASCIIObject */
-        if (MEMBER_SIZE(PyCompactUnicodeObject, _base) == sizeof(PyASCIIObject)             &&
-            MEMBER_SIZE(PyUnicodeObject, _base) == sizeof(PyCompactUnicodeObject)           &&
-            offsetof(PyCompactUnicodeObject, _base) == 0                                    &&
-            offsetof(PyUnicodeObject, _base) == 0                                           &&
-            offsetof(PyCompactUnicodeObject, _base.hash) == offsetof(PyASCIIObject, hash)   &&
-            offsetof(PyUnicodeObject, _base._base.hash) == offsetof(PyASCIIObject, hash)
-           ) {
-            /* Grab the hash from the type object cache, do not compute it. */
-            *hash = ((PyASCIIObject *)(obj))->hash;
-        }
-        else {
+        // if (MEMBER_SIZE(PyCompactUnicodeObject, _base) == sizeof(PyASCIIObject)             &&
+        //     MEMBER_SIZE(PyUnicodeObject, _base) == sizeof(PyCompactUnicodeObject)           &&
+        //     offsetof(PyCompactUnicodeObject, _base) == 0                                    &&
+        //     offsetof(PyUnicodeObject, _base) == 0                                           &&
+        //     offsetof(PyCompactUnicodeObject, _base.hash) == offsetof(PyASCIIObject, hash)   &&
+        //     offsetof(PyUnicodeObject, _base._base.hash) == offsetof(PyASCIIObject, hash)
+        //    ) {
+        //     /* Grab the hash from the type object cache, do not compute it. */
+        //     *hash = ((PyASCIIObject *)(obj))->hash;
+        // }
+        // else {
             /* cast is not safe, fail */
             return NULL;
-        }
-        return PyUnicode_DATA(obj);
+        // }
+        // return PyUnicode_DATA(obj);
     } else {
         return NULL;
     }

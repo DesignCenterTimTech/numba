@@ -17,7 +17,7 @@ import llvmlite.binding as ll
 
 IS_WIN32 = sys.platform.startswith('win32')
 IS_OSX = sys.platform.startswith('darwin')
-MACHINE_BITS = tuple.__itemsize__ * 8
+MACHINE_BITS = 8 * 8
 IS_32BITS = MACHINE_BITS == 32
 # Python version in (major, minor) tuple
 PYVERSION = sys.version_info[:2]

@@ -197,16 +197,17 @@ call_trace(Py_tracefunc func, PyObject *obj,
            PyThreadState *tstate, PyFrameObject *frame,
            int what, PyObject *arg)
 {
-    int result;
-    if (tstate->tracing)
-        return 0;
-    tstate->tracing++;
-    tstate->use_tracing = 0;
-    result = func(obj, frame, what, arg);
-    tstate->use_tracing = ((tstate->c_tracefunc != NULL)
-                           || (tstate->c_profilefunc != NULL));
-    tstate->tracing--;
-    return result;
+    // int result;
+    // if (tstate->tracing)
+    //     return 0;
+    // tstate->tracing++;
+    // tstate->use_tracing = 0;
+    // result = func(obj, frame, what, arg);
+    // tstate->use_tracing = ((tstate->c_tracefunc != NULL)
+    //                        || (tstate->c_profilefunc != NULL));
+    // tstate->tracing--;
+    // return result;
+    return 0;
 }
 
 /*
@@ -242,36 +243,36 @@ call_trace_protected(Py_tracefunc func, PyObject *obj,
  * NOTE: The state test https://github.com/python/cpython/blob/d5650a1738fe34f6e1db4af5f4c4edb7cae90a36/Python/ceval.c#L4521
  * has been removed, it's dealt with in call_cfunc.
  */
-#define C_TRACE(x, call)                                        \
-if (call_trace(tstate->c_profilefunc, tstate->c_profileobj,     \
-               tstate, tstate->frame, PyTrace_CALL, cfunc))     \
-    x = NULL;                                                   \
-else                                                            \
-{                                                               \
-    x = call;                                                   \
-    if (tstate->c_profilefunc != NULL)                          \
-    {                                                           \
-        if (x == NULL)                                          \
-        {                                                       \
-            call_trace_protected(tstate->c_profilefunc,         \
-                                 tstate->c_profileobj,          \
-                                 tstate, tstate->frame,         \
-                                 PyTrace_RETURN, cfunc);        \
-            /* XXX should pass (type, value, tb) */             \
-        }                                                       \
-        else                                                    \
-        {                                                       \
-            if (call_trace(tstate->c_profilefunc,               \
-                           tstate->c_profileobj,                \
-                           tstate, tstate->frame,               \
-                           PyTrace_RETURN, cfunc))              \
-            {                                                   \
-                Py_DECREF(x);                                   \
-                x = NULL;                                       \
-            }                                                   \
-        }                                                       \
-    }                                                           \
-}
+#define C_TRACE(x, call) x = NULL;
+// if (call_trace(tstate->c_profilefunc, tstate->c_profileobj,     \
+//                tstate, tstate->frame, PyTrace_CALL, cfunc))     \
+    
+// else                                                            \
+// {                                                               \
+//     x = call;                                                   \
+//     if (tstate->c_profilefunc != NULL)                          \
+//     {                                                           \
+//         if (x == NULL)                                          \
+//         {                                                       \
+//             call_trace_protected(tstate->c_profilefunc,         \
+//                                  tstate->c_profileobj,          \
+//                                  tstate, tstate->frame,         \
+//                                  PyTrace_RETURN, cfunc);        \
+//             /* XXX should pass (type, value, tb) */             \
+//         }                                                       \
+//         else                                                    \
+//         {                                                       \
+//             if (call_trace(tstate->c_profilefunc,               \
+//                            tstate->c_profileobj,                \
+//                            tstate, tstate->frame,               \
+//                            PyTrace_RETURN, cfunc))              \
+//             {                                                   \
+//                 Py_DECREF(x);                                   \
+//                 x = NULL;                                       \
+//             }                                                   \
+//         }                                                       \
+//     }                                                           \
+// }
 
 
 #endif
@@ -562,81 +563,81 @@ call_cfunc(Dispatcher *self, PyObject *cfunc, PyObject *args, PyObject *kws, PyO
     fn = (PyCFunctionWithKeywords) PyCFunction_GET_FUNCTION(cfunc);
     tstate = PyThreadState_GET();
 
-#if (PY_MAJOR_VERSION >= 3) && (PY_MINOR_VERSION >= 10)
-    /*
-     * On Python 3.10+ trace_info comes from somewhere up in PyFrameEval et al,
-     * Numba doesn't have access to that so creates an equivalent struct and
-     * wires it up against the cframes. This is passed into the tracing
-     * functions.
-     *
-     * Code originally from:
-     * https://github.com/python/cpython/blob/c5bfb88eb6f82111bb1603ae9d78d0476b552d66/Python/ceval.c#L1611-L1622
-     */
-    PyTraceInfo trace_info;
-    trace_info.code = NULL; // not initialized
-    CFrame *prev_cframe = tstate->cframe;
-    trace_info.cframe.use_tracing = prev_cframe->use_tracing;
-    trace_info.cframe.previous = prev_cframe;
+// #if (PY_MAJOR_VERSION >= 3) && (PY_MINOR_VERSION >= 10)
+//     /*
+//      * On Python 3.10+ trace_info comes from somewhere up in PyFrameEval et al,
+//      * Numba doesn't have access to that so creates an equivalent struct and
+//      * wires it up against the cframes. This is passed into the tracing
+//      * functions.
+//      *
+//      * Code originally from:
+//      * https://github.com/python/cpython/blob/c5bfb88eb6f82111bb1603ae9d78d0476b552d66/Python/ceval.c#L1611-L1622
+//      */
+//     PyTraceInfo trace_info;
+//     trace_info.code = NULL; // not initialized
+//     CFrame *prev_cframe = tstate->cframe;
+//     trace_info.cframe.use_tracing = prev_cframe->use_tracing;
+//     trace_info.cframe.previous = prev_cframe;
 
-    if (trace_info.cframe.use_tracing && tstate->c_profilefunc)
-#else
-    /*
-     * On Python prior to 3.10, tracing state is a member of the threadstate
-     */
-    if (tstate->use_tracing && tstate->c_profilefunc)
-#endif
-    {
-        /*
-         * The following code requires some explaining:
-         *
-         * We want the jit-compiled function to be visible to the profiler, so we
-         * need to synthesize a frame for it.
-         * The PyFrame_New() constructor doesn't do anything with the 'locals' value if the 'code's
-         * 'CO_NEWLOCALS' flag is set (which is always the case nowadays).
-         * So, to get local variables into the frame, we have to manually set the 'f_locals'
-         * member, then call `PyFrame_LocalsToFast`, where a subsequent call to the `frame.f_locals`
-         * property (by virtue of the `frame_getlocals` function in frameobject.c) will find them.
-         */
-        PyCodeObject *code = (PyCodeObject*)PyObject_GetAttrString((PyObject*)self, "__code__");
-        PyObject *globals = PyDict_New();
-        PyObject *builtins = PyEval_GetBuiltins();
-        PyFrameObject *frame = NULL;
-        PyObject *result = NULL;
+//     if (trace_info.cframe.use_tracing && tstate->c_profilefunc)
+// #else
+//     /*
+//      * On Python prior to 3.10, tracing state is a member of the threadstate
+//      */
+//     if (tstate->use_tracing && tstate->c_profilefunc)
+// #endif
+//     {
+//         /*
+//          * The following code requires some explaining:
+//          *
+//          * We want the jit-compiled function to be visible to the profiler, so we
+//          * need to synthesize a frame for it.
+//          * The PyFrame_New() constructor doesn't do anything with the 'locals' value if the 'code's
+//          * 'CO_NEWLOCALS' flag is set (which is always the case nowadays).
+//          * So, to get local variables into the frame, we have to manually set the 'f_locals'
+//          * member, then call `PyFrame_LocalsToFast`, where a subsequent call to the `frame.f_locals`
+//          * property (by virtue of the `frame_getlocals` function in frameobject.c) will find them.
+//          */
+//         PyCodeObject *code = (PyCodeObject*)PyObject_GetAttrString((PyObject*)self, "__code__");
+//         PyObject *globals = PyDict_New();
+//         PyObject *builtins = PyEval_GetBuiltins();
+//         PyFrameObject *frame = NULL;
+//         PyObject *result = NULL;
 
-        if (!code) {
-            PyErr_Format(PyExc_RuntimeError, "No __code__ attribute found.");
-            goto error;
-        }
-        /* Populate builtins, which is required by some JITted functions */
-        if (PyDict_SetItemString(globals, "__builtins__", builtins)) {
-            goto error;
-        }
+//         if (!code) {
+//             PyErr_Format(PyExc_RuntimeError, "No __code__ attribute found.");
+//             goto error;
+//         }
+//         /* Populate builtins, which is required by some JITted functions */
+//         if (PyDict_SetItemString(globals, "__builtins__", builtins)) {
+//             goto error;
+//         }
 
-        /* unset the CO_OPTIMIZED flag, make the frame get a new locals dict */
-        code->co_flags &= 0xFFFE;
+//         /* unset the CO_OPTIMIZED flag, make the frame get a new locals dict */
+//         code->co_flags &= 0xFFFE;
 
-        frame = PyFrame_New(tstate, code, globals, locals);
-        if (frame == NULL) {
-            goto error;
-        }
-        /* Populate the 'fast locals' in `frame` */
-        PyFrame_LocalsToFast(frame, 0);
-        tstate->frame = frame;
-        C_TRACE(result, fn(PyCFunction_GET_SELF(cfunc), args, kws));
-        /* write changes back to locals? */
-        PyFrame_FastToLocals(frame);
-        tstate->frame = frame->f_back;
+//         frame = PyFrame_New(tstate, code, globals, locals);
+//         if (frame == NULL) {
+//             goto error;
+//         }
+//         /* Populate the 'fast locals' in `frame` */
+//         PyFrame_LocalsToFast(frame, 0);
+//         tstate->frame = frame;
+//         C_TRACE(result, fn(PyCFunction_GET_SELF(cfunc), args, kws));
+//         /* write changes back to locals? */
+//         PyFrame_FastToLocals(frame);
+//         tstate->frame = frame->f_back;
 
-    error:
-        Py_XDECREF(frame);
-        Py_XDECREF(globals);
-        Py_XDECREF(code);
-        return result;
-    }
-    else
-    {
+//     error:
+//         Py_XDECREF(frame);
+//         Py_XDECREF(globals);
+//         Py_XDECREF(code);
+//         return result;
+//     }
+//     else
+//     {
         return fn(PyCFunction_GET_SELF(cfunc), args, kws);
-    }
+    // }
 }
 
 static
@@ -862,16 +863,16 @@ Dispatcher_call(Dispatcher *self, PyObject *args, PyObject *kws)
      * not compile one */
     int exact_match_required = self->can_compile ? 1 : self->exact_match_required;
 
-#if (PY_MAJOR_VERSION >= 3) && (PY_MINOR_VERSION >= 10)
-    if (ts->tracing && ts->c_profilefunc) {
-#else
-    if (ts->use_tracing && ts->c_profilefunc) {
-#endif
-        locals = PyEval_GetLocals();
-        if (locals == NULL) {
-            goto CLEANUP;
-        }
-    }
+// #if (PY_MAJOR_VERSION >= 3) && (PY_MINOR_VERSION >= 10)
+//     if (ts->tracing && ts->c_profilefunc) {
+// #else
+//     if (ts->use_tracing && ts->c_profilefunc) {
+// #endif
+//         locals = PyEval_GetLocals();
+//         if (locals == NULL) {
+//             goto CLEANUP;
+//         }
+//     }
     if (self->fold_args) {
         if (find_named_args(self, &args, &kws))
             return NULL;
@@ -980,16 +981,16 @@ Dispatcher_cuda_call(Dispatcher *self, PyObject *args, PyObject *kws)
      * not compile one */
     int exact_match_required = self->can_compile ? 1 : self->exact_match_required;
 
-#if (PY_MAJOR_VERSION >= 3) && (PY_MINOR_VERSION >= 10)
-    if (ts->tracing && ts->c_profilefunc) {
-#else
-    if (ts->use_tracing && ts->c_profilefunc) {
-#endif
-        locals = PyEval_GetLocals();
-        if (locals == NULL) {
-            goto CLEANUP;
-        }
-    }
+// #if (PY_MAJOR_VERSION >= 3) && (PY_MINOR_VERSION >= 10)
+//     if (ts->tracing && ts->c_profilefunc) {
+// #else
+//     if (ts->use_tracing && ts->c_profilefunc) {
+// #endif
+//         locals = PyEval_GetLocals();
+//         if (locals == NULL) {
+//             goto CLEANUP;
+//         }
+//     }
     if (self->fold_args) {
         if (find_named_args(self, &args, &kws))
             return NULL;
