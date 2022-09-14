@@ -9,7 +9,7 @@ class Environment(_dynfunc.Environment):
 
     It is often needed to convert b/w nopython objects and pyobjects.
     """
-    __slots__ = ('env_name', '__weakref__')
+    __slots__ = ('env_name')
     # A weak-value dictionary to store live environment with env_name as the
     # key.
     _memo = weakref.WeakValueDictionary()

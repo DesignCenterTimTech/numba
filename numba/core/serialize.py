@@ -178,12 +178,12 @@ class NumbaPickler(cloudpickle.CloudPickler):
     disabled_types = set()
     """A set of types that pickling cannot is disabled.
     """
-
-    def reducer_override(self, obj):
-        # Overridden to disable pickling of certain types
-        if type(obj) in self.disabled_types:
-            _no_pickle(obj)  # noreturn
-        return super().reducer_override(obj)
+    if not 'PyPy' in sys.version:
+        def reducer_override(self, obj):
+            # Overridden to disable pickling of certain types
+            if type(obj) in self.disabled_types:
+                _no_pickle(obj)  # noreturn
+            return super().reducer_override(obj)
 
 
 def _custom_reduce__custompickled(cp):
