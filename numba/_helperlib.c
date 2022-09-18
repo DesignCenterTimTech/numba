@@ -335,6 +335,7 @@ CLEANUP:
     return record;
 }
 
+#ifdef PYPY_VERSION
 NUMBA_EXPORT_FUNC(int)
 numba_adapt_ndarray(PyObject *obj, arystruct_t* arystruct) {
     PyArrayObject *ndary;
@@ -362,6 +363,7 @@ numba_adapt_ndarray(PyObject *obj, arystruct_t* arystruct) {
     arystruct->meminfo = NULL;
     return 0;
 }
+#endif
 
 NUMBA_EXPORT_FUNC(int)
 numba_get_buffer(PyObject *obj, Py_buffer *buf)

@@ -22,7 +22,11 @@ from numba.core.registry import cpu_target
 from numba.core.base import BaseContext
 from numba.np import ufunc_db
 
-is32bits = 8 == 4
+if 'PyPy' in sys.version:
+    is32bits = 8 == 4
+else:
+    is32bits = tuple.__itemsize__ == 4
+
 iswindows = sys.platform.startswith('win32')
 
 # NOTE: to test the implementation of Numpy ufuncs, we disable rewriting
