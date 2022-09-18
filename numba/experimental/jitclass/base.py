@@ -1,5 +1,6 @@
 import inspect
 import operator
+import sys
 import types as pytypes
 import typing as pt
 from collections import OrderedDict
@@ -195,7 +196,7 @@ def register_class_type(cls, spec, class_ctor, builder):
             methods[k] = v
         elif isinstance(v, property):
             props[k] = v
-        elif isinstance(v, staticmethod):
+        elif isinstance(v, staticmethod) or ('PyPy' in sys.version and isinstance(v, classmethod)):
             static_methods[k] = v
         else:
             others[k] = v

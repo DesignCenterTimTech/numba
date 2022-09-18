@@ -17,6 +17,7 @@ PY_UNICODE_1BYTE_KIND = _helperlib.py_unicode_1byte_kind
 PY_UNICODE_2BYTE_KIND = _helperlib.py_unicode_2byte_kind
 PY_UNICODE_4BYTE_KIND = _helperlib.py_unicode_4byte_kind
 PY_UNICODE_WCHAR_KIND = _helperlib.py_unicode_wchar_kind
+PYPY = 'PyPy' in sys.version
 
 
 class _Registry(object):
@@ -232,7 +233,10 @@ class PythonAPI(object):
 
     def decref(self, obj):
         fnty = ir.FunctionType(ir.VoidType(), [self.pyobj])
-        fn = self._get_function(fnty, name="Py_DecRef")
+        if PYPY:
+            fn = self._get_function(fnty, name="PyPy_DecRef")
+        else:
+            fn = self._get_function(fnty, name="Py_DecRef")
         self.builder.call(fn, [obj])
 
     def get_type(self, obj):
@@ -263,7 +267,10 @@ class PythonAPI(object):
         charptr = ir.PointerType(ir.IntType(8))
         argtypes = [self.pyobj, charptr, self.py_ssize_t, self.py_ssize_t]
         fnty = ir.FunctionType(ir.IntType(32), argtypes, var_arg=True)
-        fn = self._get_function(fnty, name="PyArg_UnpackTuple")
+        if PYPY:
+            fn = self._get_function(fnty, name="PyPyArg_UnpackTuple")
+        else:
+            fn = self._get_function(fnty, name="PyArg_UnpackTuple")
         n_min = Constant(self.py_ssize_t, int(n_min))
         n_max = Constant(self.py_ssize_t, int(n_max))
         if isinstance(name, str):
@@ -276,17 +283,26 @@ class PythonAPI(object):
 
     def err_occurred(self):
         fnty = ir.FunctionType(self.pyobj, ())
-        fn = self._get_function(fnty, name="PyErr_Occurred")
+        if PYPY:
+            fn = self._get_function(fnty, name="PyPyErr_Occurred")
+        else:
+            fn = self._get_function(fnty, name="PyErr_Occurred")
         return self.builder.call(fn, ())
 
     def err_clear(self):
         fnty = ir.FunctionType(ir.VoidType(), ())
-        fn = self._get_function(fnty, name="PyErr_Clear")
+        if PYPY:
+            fn = self._get_function(fnty, name="PyPyErr_Clear")
+        else:
+            fn = self._get_function(fnty, name="PyErr_Clear")
         return self.builder.call(fn, ())
 
     def err_set_string(self, exctype, msg):
         fnty = ir.FunctionType(ir.VoidType(), [self.pyobj, self.cstring])
-        fn = self._get_function(fnty, name="PyErr_SetString")
+        if PYPY:
+            fn = self._get_function(fnty, name="PyPyErr_SetString")
+        else:
+            fn = self._get_function(fnty, name="PyErr_SetString")
         if isinstance(exctype, str):
             exctype = self.get_c_object(exctype)
         if isinstance(msg, str):
@@ -476,7 +492,10 @@ class PythonAPI(object):
 
     def number_long(self, numobj):
         fnty = ir.FunctionType(self.pyobj, [self.pyobj])
-        fn = self._get_function(fnty, name="PyNumber_Long")
+        if PYPY:
+            fn = self._get_function(fnty, name="PyPyNumber_Long")
+        else:
+            fn = self._get_function(fnty, name="PyNumber_Long")
         return self.builder.call(fn, [numobj])
 
     def long_as_ulonglong(self, numobj):
@@ -486,7 +505,10 @@ class PythonAPI(object):
 
     def long_as_longlong(self, numobj):
         fnty = ir.FunctionType(self.ulonglong, [self.pyobj])
-        fn = self._get_function(fnty, name="PyLong_AsLongLong")
+        if PYPY:
+            fn = self._get_function(fnty, name="PyPyLong_AsLongLong")
+        else:
+            fn = self._get_function(fnty, name="PyLong_AsLongLong")
         return self.builder.call(fn, [numobj])
 
     def long_as_voidptr(self, numobj):

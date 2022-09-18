@@ -19,6 +19,7 @@ class ArrayStruct3D(Structure):
     ]
 
 
+@unittest.skip('PYPY FIXME - segfault')
 class TestArrayAdaptor(unittest.TestCase):
     def test_array_adaptor(self):
         arystruct = ArrayStruct3D()

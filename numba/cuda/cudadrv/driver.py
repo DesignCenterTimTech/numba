@@ -50,10 +50,11 @@ MIN_REQUIRED_CC = (3, 5)
 SUPPORTS_IPC = sys.platform.startswith('linux')
 
 
-_py_decref = ctypes.pythonapi.Py_DecRef
-_py_incref = ctypes.pythonapi.Py_IncRef
-_py_decref.argtypes = [ctypes.py_object]
-_py_incref.argtypes = [ctypes.py_object]
+if not 'PyPy' in sys.version:
+    _py_decref = ctypes.pythonapi.Py_DecRef
+    _py_incref = ctypes.pythonapi.Py_IncRef
+    _py_decref.argtypes = [ctypes.py_object]
+    _py_incref.argtypes = [ctypes.py_object]
 
 
 def make_logger():
